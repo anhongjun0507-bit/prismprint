@@ -20,13 +20,13 @@ export default async function HomePage() {
 
       <section
         id="categories"
-        className="mx-auto max-w-7xl px-4 py-12 sm:py-16"
+        className="mx-auto max-w-7xl px-4 py-16 sm:py-20"
       >
         <CategoryShowcase categories={mockCategories} />
       </section>
 
-      <div className="border-y bg-muted/30">
-        <section className="mx-auto max-w-7xl px-4 py-12 sm:py-16">
+      <div className="border-y bg-gradient-to-b from-muted/40 to-muted/10">
+        <section className="mx-auto max-w-7xl px-4 py-16 sm:py-20">
           <ProductSection
             title="신상품"
             subtitle="NEW"
@@ -35,7 +35,7 @@ export default async function HomePage() {
         </section>
       </div>
 
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:py-16">
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:py-20">
         <ProductSection
           title="베스트"
           subtitle="BEST"

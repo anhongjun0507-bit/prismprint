@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-import { getCategoryGradient } from "@/lib/categoryStyles";
+import { getCategoryStyle } from "@/lib/categoryStyles";
 import { cn } from "@/lib/utils";
 
 import type { Product } from "@/types";
@@ -11,12 +11,13 @@ interface ProductGalleryProps {
 }
 
 export function ProductGallery({ product, categorySlug }: ProductGalleryProps) {
-  const gradient = getCategoryGradient(categorySlug);
+  const style = getCategoryStyle(categorySlug);
+  const Icon = style.icon;
   const mainImage = product.images[0] ?? null;
 
   return (
     <div className="space-y-3">
-      <div className="relative aspect-square w-full overflow-hidden rounded-md border bg-muted">
+      <div className="relative aspect-square w-full overflow-hidden rounded-xl border bg-muted">
         {mainImage ? (
           <Image
             src={mainImage.url}
@@ -30,11 +31,21 @@ export function ProductGallery({ product, categorySlug }: ProductGalleryProps) {
           <div
             aria-hidden
             className={cn(
-              "flex h-full w-full items-center justify-center bg-gradient-to-br text-base font-semibold text-foreground/40",
-              gradient,
+              "flex h-full w-full flex-col items-center justify-center gap-4 bg-gradient-to-br",
+              style.gradient,
             )}
           >
-            {product.name}
+            <div
+              className={cn(
+                "inline-flex h-24 w-24 items-center justify-center rounded-3xl shadow-sm",
+                style.iconBg,
+              )}
+            >
+              <Icon className={cn("h-12 w-12", style.iconColor)} />
+            </div>
+            <p className="text-sm font-semibold text-foreground/50">
+              {product.name}
+            </p>
           </div>
         )}
       </div>
