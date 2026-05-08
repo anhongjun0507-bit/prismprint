@@ -1,0 +1,151 @@
+---
+description: PrismPrint 프로젝트 코드 작성 규칙 (모든 파일에 적용)
+globs: ["**/*.ts", "**/*.tsx"]
+alwaysApply: true
+---
+
+# 코드 작성 규칙
+
+## 항상 지킬 것
+
+1. **TypeScript strict 모드** — `any` 금지
+2. **함수형 컴포넌트만** — class 컴포넌트 절대 사용 금지
+3. **Server Component 기본** — `"use client"` 는 꼭 필요할 때만
+4. **한국어 메시지** — 사용자에게 보이는 모든 텍스트는 한국어
+5. **shadcn/ui 우선** — UI 컴포넌트는 `npx shadcn@latest add` 로 추가, 직접 만들지 않음
+
+## Import 순서 (자동정렬)
+
+```typescript
+// 1. React, Next.js
+import { useState } from "react";
+import Link from "next/link";
+
+// 2. 외부 라이브러리
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+
+// 3. 내부 lib
+import { createClient } from "@/lib/supabase/server";
+
+// 4. 컴포넌트
+import { Button } from "@/components/ui/button";
+
+// 5. 타입
+import type { Product } from "@/types";
+```
+
+## 파일 명명 규칙
+
+- 컴포넌트 파일: `PascalCase.tsx` (예: `ProductCard.tsx`)
+- 유틸·훅 파일: `camelCase.ts` (예: `formatPrice.ts`, `useCart.ts`)
+- 라우트 파일: Next.js 규칙 (`page.tsx`, `layout.tsx`, `loading.tsx`)
+- 타입 파일: `index.ts`, `database.ts`
+
+## 컴포넌트 작성 패턴
+
+```typescript
+// ProductCard.tsx
+import Image from "next/image";
+import Link from "next/link";
+
+import type { Product } from "@/types";
+
+interface ProductCardProps {
+  product: Product;
+}
+
+export function ProductCard({ product }: ProductCardProps) {
+  return (
+    <Link href={`/products/${product.id}`}>
+      {/* ... */}
+    </Link>
+  );
+}
+```
+
+- `default export` 대신 `named export` 우선 (라우트 파일 제외)
+- Props는 `interface XxxProps`로 정의
+- 컴포넌트 본문 200줄 넘으면 하위 컴포넌트로 분리
+
+## Supabase 사용 패턴
+
+### Server Component에서 데이터 조회
+
+```typescript
+import { createClient } from "@/lib/supabase/server";
+
+export default async function ProductsPage() {
+  const supabase = await createClient();
+  const { data: products, error } = await supabase
+    .from("products")
+    .select("*, product_images(*)")
+    .eq("is_active", true)
+    .order("display_order");
+
+  if (error) {
+    console.error("Failed to fetch products:", error);
+    return <div>상품을 불러오지 못했습니다.</div>;
+  }
+
+  return <ProductGrid products={products} />;
+}
+```
+
+### Server Action 패턴
+
+```typescript
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+
+import { createClient } from "@/lib/supabase/server";
+
+const createOrderSchema = z.object({
+  recipientName: z.string().min(1, "성명을 입력해주세요"),
+  recipientPhone: z.string().regex(/^010-\d{4}-\d{4}$/, "올바른 휴대폰 번호 형식이 아닙니다"),
+  // ...
+});
+
+export async function createOrder(formData: FormData) {
+  const validated = createOrderSchema.safeParse(Object.fromEntries(formData));
+  if (!validated.success) {
+    return { error: validated.error.errors[0].message };
+  }
+
+  const supabase = await createClient();
+  // ... 트랜잭션 처리
+  revalidatePath("/orders");
+  return { success: true };
+}
+```
+
+## 가격 표시 유틸
+
+```typescript
+// lib/utils.ts
+export function formatPrice(price: number): string {
+  return new Intl.NumberFormat("ko-KR").format(price) + "원";
+}
+```
+
+화면에서 가격 표시할 때는 항상 이 함수를 쓴다. 직접 `${price}원` 같이 쓰지 않는다.
+
+## 절대 하지 말 것
+
+- ❌ `<img>` 태그 사용 (Next.js `<Image>` 만 사용)
+- ❌ `localStorage` 직접 접근 (SSR 시 에러). 필요하면 `useEffect` 안에서만
+- ❌ `fetch` 로 자체 API 호출 (Server Component에서는 Supabase 직접 호출)
+- ❌ 인라인 스타일 (`style={{...}}`) — Tailwind 클래스만 사용
+- ❌ 전역 CSS 추가 — `globals.css`는 거의 건드리지 않음
+- ❌ `default export` 함수 컴포넌트 (라우트 파일 제외)
+- ❌ DB 컬럼명 카멜케이스 변환 — DB는 snake_case 그대로 사용 (`recipient_name`)
+- ❌ `console.log` 프로덕션 남기기 — 개발 중에만 사용
+
+## 새 기능 추가 시 체크리스트
+
+1. DB 변경이 필요한가? → `supabase/migrations/` 에 새 SQL 파일 추가
+2. 타입 업데이트 필요한가? → `npx supabase gen types typescript --local` 실행
+3. 새 라이브러리 필요한가? → 사용자에게 확인 받고 설치
+4. RLS 정책 수정 필요한가? → 마이그레이션 파일에 명시
