@@ -21,8 +21,7 @@ interface DbOrderStatusBoxProps {
   order: OrderRow;
 }
 
-// DB OrderRow 를 기반으로 status 별 알림 박스를 렌더한다.
-// (mock 도메인 타입을 쓰는 OrderStatusBox 와 동일한 UI, 다른 입력 타입)
+// orders 테이블 row 를 받아 status 별 알림 박스를 렌더한다.
 export function DbOrderStatusBox({ order }: DbOrderStatusBoxProps) {
   switch (order.status) {
     case "pending_payment":

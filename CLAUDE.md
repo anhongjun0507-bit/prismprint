@@ -10,7 +10,7 @@ NHN 고도몰 같은 임대 솔루션이 아니라 **풀스택 커스텀 개발*
 - 작업자: 프리즘 (안홍준)
 - 상품 수: 약 20종
 - 결제: **무통장입금 전용** (PG 연동 없음)
-- 회원: 일반 회원가입 (특별 권한 없음)
+- 회원: **회원가입 미운영, 비회원 주문 전용**. 일반 사용자 로그인/회원가입 페이지는 만들지 않는다. Supabase Auth는 admin 1인 로그인 용도로만 사용.
 
 ## 기술 스택 (확정)
 
@@ -27,24 +27,22 @@ NHN 고도몰 같은 임대 솔루션이 아니라 **풀스택 커스텀 개발*
 
 ## DB 스키마 (절대 임의 변경 금지)
 
-마이그레이션 파일은 `supabase/migrations/` 에 있다. 카테고리는 DB 테이블이 아니라 **코드 상수(8종 고정)** 로 관리한다.
+마이그레이션 파일은 `supabase/migrations/` 에 있고 **002_revised_schema.sql 이 현재 상태의 정의**이다 (001 은 deprecated). 카테고리는 `public.categories` 테이블과 `src/lib/categories.ts` **코드 상수(8종 고정)** 에서 이중 관리된다 — slug·name·display_order 가 1:1 동기화되어야 하며, 메뉴 노출은 코드 상수, 단일 카테고리 조회는 DB 테이블을 쓴다. 카테고리 추가/변경 시 양쪽을 함께 수정한다.
 
 **확정 테이블 (8개)**:
-- `users` — 회원 (role: customer | admin)
-- `products` — 상품 마스터 (`category_slug` 컬럼이 코드 상수와 연결)
-- `product_images` — 상품 이미지 (다중)
-- `product_options` — 옵션 (수량·디자인 등)
-- `carts` — 장바구니
-- `orders` — 주문 (status: pending_payment | paid | preparing | shipping | delivered | cancelled)
-- `order_items` — 주문 상품 스냅샷 (product_name·unit_price 등 결제 시점 보존)
-- `deposits` — 무통장 입금 정보 (admin이 수동 확인)
+- `categories` — 카테고리 (코드 상수와 동기, 8행 시드)
+- `products` — 상품 마스터. `category_id` FK. 이미지·옵션은 별도 테이블이 아닌 `images` / `options` jsonb 컬럼으로 통합
+- `orders` — 주문 (status: pending_payment | paid | preparing | shipping | delivered | cancelled). **`user_id` 컬럼 없음** — 비회원 주문이므로 `phone_last4` + `order_number` 로 본인 확인
+- `order_items` — 주문 상품 스냅샷 (product_name·unit_price·thumbnail_url 결제 시점 보존, `selected_options` / `custom_data` jsonb)
+- `deposits` — 무통장 입금 정보 (admin이 수동 확인). `confirmed_by` 는 `auth.users` FK
+- `qna_posts` — Q&A 게시판 질문 (작성자명 + `password_hash`, `is_secret` 옵션)
+- `qna_replies` — Q&A 답변 (admin 작성, `auth.users` FK)
+- `reviews` — 상품 후기 (작성자명 + `password_hash`, 별점 1–5, `is_visible` 토글)
 
-**다음 마이그레이션에서 추가될 테이블 (2개)**:
-- `qna_posts` — Q&A 게시판 (질문 + admin 답변, 비공개 옵션)
-- `product_reviews` — 상품 후기 (별점 + 본문, 결제 완료 회원만 작성)
-
-**제거된 테이블** (이전 설계에서 빠진 것):
-- ~~`categories`~~ → 코드 상수 (`src/lib/categories.ts` 또는 mock-data)
+**테이블이 아닌 것** (앞선 설계에서 도입했다가 002에서 제거):
+- ~~`users`~~ → admin 1명만 운영하므로 별도 프로필 테이블을 두지 않는다. `auth.users` 의 row 가 곧 admin. RLS 헬퍼 `public.is_admin()` = `auth.uid() is not null` 단순 정책
+- ~~`product_images`, `product_options`~~ → `products.images`, `products.options` jsonb 통합
+- ~~`carts`~~ → 브라우저 zustand (`src/lib/stores/cart-store.ts`) 가 단일 저장소, DB 사용하지 않음
 - ~~`site_settings`~~ → 환경변수 (`.env.local`)
 - ~~`notices`~~ → 공지사항 게시판 자체 제거
 
@@ -81,15 +79,18 @@ NHN 고도몰 같은 임대 솔루션이 아니라 **풀스택 커스텀 개발*
 ```
 src/
 ├── app/                # Next.js App Router 라우트
-│   ├── (shop)/                  # 일반 사용자 페이지
+│   ├── (shop)/                  # 일반 사용자 페이지 (모두 비회원 접근)
 │   │   ├── categories/[slug]/   # 카테고리별 상품 목록
-│   │   ├── products/[slug]/     # 상품 상세
+│   │   ├── products/[slug]/     # 상품 상세 (후기는 여기 탭으로 노출)
 │   │   ├── cart/                # 장바구니
 │   │   ├── checkout/            # 주문서
+│   │   ├── order/complete/      # 주문 완료 + 무통장입금 안내
+│   │   ├── order/lookup/        # 비회원 주문 조회 (주문번호 + 휴대폰 끝 4자리)
+│   │   ├── search/              # 상품명 검색
 │   │   ├── qna/                 # Q&A 게시판
-│   │   ├── reviews/             # 상품 후기
-│   │   └── faq/                 # FAQ 정적 페이지
-│   ├── (auth)/         # 로그인/회원가입
+│   │   ├── faq/                 # FAQ 정적 페이지
+│   │   ├── privacy/             # 개인정보처리방침
+│   │   └── terms/               # 이용약관
 │   ├── admin/          # 관리자 4개 페이지 (RLS + middleware 보호)
 │   │   ├── login/
 │   │   ├── orders/              # 주문 관리 + 입금 확인 + 상단 카운트
@@ -138,13 +139,12 @@ src/
 
 ### 보안 (RLS)
 
-모든 DB 테이블에 Row Level Security 활성화. 정책은 마이그레이션 파일 참고.
-- `users`: 본인 정보만 읽기·수정
-- `orders`, `order_items`, `carts`: 본인 것만 접근
-- `products`, `product_images`, `product_options`: 누구나 조회, admin만 수정
-- `deposits`: admin 전용
-- `qna_posts`: 공개 글은 누구나 조회, 비공개 글은 작성자·admin만. 답변은 admin만
-- `product_reviews`: 노출 처리된 글은 누구나 조회, 결제 완료 회원만 작성, admin이 노출 토글
+모든 DB 테이블에 Row Level Security 활성화. 정책은 002 마이그레이션 참고. 비회원 사이트라 admin 판별은 `public.is_admin() = auth.uid() is not null` 헬퍼 한 줄로 단순화 (auth 에는 admin 1명만 등록). 본인 검증(비회원 글 삭제 등)은 RLS 가 아닌 server action 에서 비밀번호 해시 검증 + `createAdminClient()` (service-role) 로 우회.
+- `categories`, `products`: anon SELECT (`is_active=true`), admin 전체 권한
+- `orders`, `order_items`, `deposits`: anon INSERT 허용, anon SELECT 도 허용(임시) — 본인 조회는 server action 이 `order_number` + `phone_last4` 매칭으로 1차 가드. admin 만 UPDATE/DELETE
+- `qna_posts`: anon SELECT/INSERT 모두 허용. 비공개 글 본문 노출 가드는 앱 단에서. UPDATE/DELETE 는 admin
+- `qna_replies`: anon SELECT, admin 만 작성·수정·삭제
+- `reviews`: anon SELECT (`is_visible=true`) + INSERT. 본인 삭제는 비밀번호 검증 후 service-role 우회. admin 이 노출 토글·전체 조회·삭제
 
 ### 에러 처리
 
@@ -190,7 +190,7 @@ src/
 
 관리자 1명(클라이언트 또는 위임자) 운영을 가정한다. 페이지는 다음 4개로만 한정한다.
 
-1. **`/admin/login`** — Supabase Auth + `users.role = 'admin'` 체크
+1. **`/admin/login`** — Supabase Auth 로그인 (auth.users 에 admin 1명만 등록되어 있음. 별도 role 컬럼 없이 `is_admin()` 헬퍼가 로그인 여부만 체크)
 2. **`/admin/orders`** — 주문 관리 + 입금 확인. 페이지 상단에 미입금/처리중/완료 카운트 카드 (별도 대시보드 페이지 없음). 입금 확인 흐름은 위 "입금 확인 흐름 (admin)" 참고
 3. **`/admin/products`** — 상품 마스터·이미지·옵션 CRUD. 카테고리는 코드 상수에서 select만 (편집 불가)
 4. **`/admin/board`** — Q&A 답변 + 상품 후기 노출/숨김. 두 게시판을 탭으로 한 페이지에서 처리
@@ -205,8 +205,8 @@ src/
 
 ## 게시판 (2개 + 정적 1개)
 
-- **Q&A 게시판** (`/qna`) — 회원/비회원 모두 작성 가능. 비공개 옵션. admin이 답변 작성
-- **상품 후기** (`/reviews`, 또는 상품 상세 안 별도 탭) — 결제 완료 회원만 작성. 별점 + 본문. admin이 노출/숨김 제어
+- **Q&A 게시판** (`/qna`) — 비회원 작성 (작성자명 + 비밀번호). 비공개 옵션 시 비밀번호 검증 후 본문 노출. admin이 답변 작성
+- **상품 후기** — 상품 상세(`/products/[slug]`) 안의 후기 탭으로만 노출 (별도 `/reviews` 라우트 없음). 비회원 작성 (작성자명 + 비밀번호 + 별점 + 본문). 본인 삭제는 비밀번호 검증. admin이 노출/숨김 제어
 - **FAQ** (`/faq`) — 정적 페이지 1장. JSX에 직접 작성, DB 없음
 - **공지사항** — 사용 안 함
 
@@ -216,10 +216,10 @@ src/
 
 Week별 로드맵을 따라간다. 순서를 바꾸지 않는다.
 
-1. **Week 1**: 프로젝트 셋업, Supabase 연결, 인증 (회원가입·로그인), 기본 레이아웃
+1. **Week 1**: 프로젝트 셋업, Supabase 연결, admin Auth, 기본 레이아웃
 2. **Week 2**: 상품 목록·상세, 카테고리·검색
-3. **Week 3**: 장바구니, 주문서, 주문 생성
-4. **Week 4**: 마이페이지, 주문 조회, 이메일 발송
+3. **Week 3**: 장바구니, 주문서, 주문 생성 (비회원)
+4. **Week 4**: 비회원 주문 조회 (`/order/lookup`), 이메일 발송 (Resend)
 5. **Week 5**: 관리자 4개 페이지 (login·orders·products·board) + Q&A·후기 게시판
 6. **Week 6**: 약관·정책 페이지, FAQ 정적 페이지, 반응형 점검, 테스트, 배포
 

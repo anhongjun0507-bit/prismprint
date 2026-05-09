@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { categoryRequiresCustomData } from "@/lib/categories";
 import { getProductBySlug } from "@/lib/supabase/queries/products";
 import { formatPrice } from "@/lib/utils";
 
@@ -20,12 +21,6 @@ interface ProductPageProps {
   params: Promise<{ slug: string }>;
 }
 
-// 받는 사람 정보를 추가로 받아야 하는 카테고리 slug.
-// Phase 2에는 카테고리 코드 상수에 `requires_custom_data` 플래그로 옮긴다.
-const CATEGORIES_REQUIRING_CUSTOM_DATA: ReadonlySet<string> = new Set([
-  "business-card",
-]);
-
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
@@ -34,9 +29,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
-  const requiresCustomData = CATEGORIES_REQUIRING_CUSTOM_DATA.has(
-    product.category.slug,
-  );
+  const requiresCustomData = categoryRequiresCustomData(product.category.slug);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:py-10">

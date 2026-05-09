@@ -82,3 +82,27 @@ export async function getBestProducts(
   }
   return (data ?? []) as unknown as ProductWithCategory[];
 }
+
+// 상품명 기준 부분 일치 검색. ILIKE 메타문자(%, _, \)는 이스케이프해 안전하게 매칭.
+export async function searchProducts(
+  query: string,
+): Promise<ProductWithCategory[]> {
+  const trimmed = query.trim();
+  if (trimmed.length === 0) return [];
+
+  const escaped = trimmed.replace(/[\\%_]/g, "\\$&");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_WITH_CATEGORY_SELECT)
+    .eq("is_active", true)
+    .ilike("name", `%${escaped}%`)
+    .order("display_order");
+
+  if (error) {
+    console.error("Failed to search products:", error);
+    return [];
+  }
+  return (data ?? []) as unknown as ProductWithCategory[];
+}

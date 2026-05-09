@@ -7,22 +7,6 @@
  */
 
 // ============================================
-// 회원
-// ============================================
-
-export type UserRole = "customer" | "admin";
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  phone: string | null;
-  role: UserRole;
-  created_at: string;
-  updated_at: string;
-}
-
-// ============================================
 // 카테고리
 // ============================================
 
@@ -109,7 +93,8 @@ export interface CartItem {
 }
 
 // ============================================
-// 주문
+// 주문 — DB row 타입은 Database["public"]["Tables"]["orders"]["Row"] 를 사용한다.
+// 여기엔 status 라벨링 등 화면에서 자주 쓰는 enum 만 둔다.
 // ============================================
 
 export type OrderStatus =
@@ -119,46 +104,6 @@ export type OrderStatus =
   | "shipping"
   | "delivered"
   | "cancelled";
-
-export interface Order {
-  id: string;
-  order_number: string;
-  user_id: string | null;
-  status: OrderStatus;
-  recipient_name: string;
-  recipient_phone: string;
-  recipient_email: string | null;
-  shipping_zipcode: string;
-  shipping_address: string;
-  shipping_address_detail: string | null;
-  shipping_memo: string | null;
-  depositor_name: string;
-  product_total: number;
-  shipping_fee: number;
-  total_price: number;
-  tracking_number: string | null;
-  paid_at: string | null;
-  created_at: string;
-  updated_at: string;
-  // Phase 2엔 별도 order_items 테이블의 FK 관계로 분리됨.
-  // mock 단계에서는 임베드해서 단일 row로 영구화.
-  items: OrderItem[];
-}
-
-export interface OrderItem {
-  id: string;
-  order_id: string;
-  product_id: string | null;
-  product_slug: string;
-  category_id: string;
-  product_name: string;
-  thumbnail_url: string | null;
-  unit_price: number;
-  quantity: number;
-  subtotal: number;
-  selected_options: Record<string, string>;
-  custom_data: Record<string, unknown> | null;
-}
 
 // ============================================
 // Q&A 게시판

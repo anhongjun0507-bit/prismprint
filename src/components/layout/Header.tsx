@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
 
-import { mockCategories } from "@/lib/mock-data";
+import { categories } from "@/lib/categories";
 
 import { CartIcon } from "@/components/layout/CartIcon";
 import { CategoryNav } from "@/components/layout/CategoryNav";
@@ -12,7 +12,7 @@ export function Header() {
     <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 md:h-16 md:gap-6">
         <div className="flex items-center gap-2">
-          <MobileMenu categories={mockCategories} />
+          <MobileMenu categories={categories} />
           <Link
             href="/"
             className="text-lg font-bold tracking-tight md:text-xl"
@@ -24,7 +24,7 @@ export function Header() {
 
         <div className="hidden flex-1 justify-center md:flex">
           <CategoryNav
-            categories={mockCategories}
+            categories={categories}
             orientation="horizontal"
           />
         </div>
@@ -33,7 +33,7 @@ export function Header() {
           <Link
             href="/search"
             aria-label="검색"
-            className="hidden h-9 w-9 items-center justify-center rounded-md hover:bg-muted md:inline-flex"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted"
           >
             <Search className="h-5 w-5" />
           </Link>

@@ -2,7 +2,7 @@ import {
   getBestProducts,
   getNewProducts,
 } from "@/lib/supabase/queries/products";
-import { mockCategories } from "@/lib/mock-data";
+import { categories } from "@/lib/categories";
 
 import { CategoryShowcase } from "@/components/shop/CategoryShowcase";
 import { HeroBanner } from "@/components/shop/HeroBanner";
@@ -22,7 +22,7 @@ export default async function HomePage() {
         id="categories"
         className="mx-auto max-w-7xl px-4 py-16 sm:py-20"
       >
-        <CategoryShowcase categories={mockCategories} />
+        <CategoryShowcase categories={categories} />
       </section>
 
       <div className="border-y bg-gradient-to-b from-muted/40 to-muted/10">
