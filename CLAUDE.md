@@ -240,3 +240,91 @@ Week별 로드맵을 따라간다. 순서를 바꾸지 않는다.
 - 산세리프 (Pretendard 또는 Noto Sans KR)
 - 깔끔한 카드형 상품 진열
 - 명함 주문 시 옵션 입력 폼 강조
+
+---
+
+## 코드 컨벤션 (구 `.cursor/rules/project.mdc` 흡수)
+
+### Import 순서
+
+```typescript
+// 1. React, Next.js
+import { useState } from "react";
+import Link from "next/link";
+
+// 2. 외부 라이브러리
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+
+// 3. 내부 lib
+import { createClient } from "@/lib/supabase/server";
+
+// 4. 컴포넌트
+import { Button } from "@/components/ui/button";
+
+// 5. 타입
+import type { Product } from "@/types";
+```
+
+### 파일 명명
+
+- 컴포넌트: `PascalCase.tsx` (예: `ProductCard.tsx`)
+- 유틸·훅: `camelCase.ts` (예: `formatPrice.ts`, `useCart.ts`)
+- 라우트: Next.js 규칙 (`page.tsx`, `layout.tsx`, `loading.tsx`)
+- 타입: `index.ts`, `database.ts`
+
+### 컴포넌트 작성
+
+- `default export` 대신 **named export** 우선 (라우트 파일 제외 — 라우트는 Next.js 규칙상 default)
+- Props 는 `interface XxxProps` 로 정의
+- 본문 200줄 넘으면 하위 컴포넌트로 분리
+
+### 가격 표시 유틸 (필수)
+
+```typescript
+// src/lib/utils.ts
+export function formatPrice(price: number): string {
+  return new Intl.NumberFormat("ko-KR").format(price) + "원";
+}
+```
+
+화면에 가격 표시할 때는 항상 이 함수 사용. `${price}원` 같은 인라인 금지.
+
+### 절대 하지 말 것
+
+- ❌ `<img>` 태그 (Next.js `<Image>` 만)
+- ❌ `localStorage` 직접 접근 (SSR 에러). 필요하면 `useEffect` 안에서만
+- ❌ `fetch` 로 자체 API 호출 (Server Component 에서는 Supabase 직접 호출)
+- ❌ 인라인 스타일 `style={{...}}` — Tailwind 클래스만
+- ❌ 전역 CSS 추가 — `globals.css` 거의 안 건드림
+- ❌ `default export` 함수 컴포넌트 (라우트 파일 제외)
+- ❌ DB 컬럼명 카멜케이스 변환 — DB 는 snake_case 그대로 사용
+- ❌ `console.log` 프로덕션 잔류 (개발 중만)
+- ❌ `class` 컴포넌트 (함수형만)
+
+### 새 기능 추가 체크리스트
+
+1. DB 변경 필요? → `supabase/migrations/` 에 새 SQL 파일 추가
+2. 타입 업데이트 필요? → `npm run supabase:types` 실행
+3. 새 라이브러리 필요? → **사용자에게 확인 받고** 설치
+4. RLS 정책 수정 필요? → 마이그레이션 파일에 명시
+5. shadcn 컴포넌트 추가 필요? → `npx shadcn@2.10.0 add <name>` (4.x 는 Tailwind v4 + Base UI 라 깨짐)
+
+---
+
+## 개발 환경 — Codespaces / Devcontainer
+
+- **로컬 / Codespaces 공통**: Node 20+, `npm install` 후 `npm run dev` → http://localhost:3000
+- **Devcontainer** (`.devcontainer/devcontainer.json`) 가 기본 세팅을 한다:
+  - Node 20 base image, ESLint·Prettier·Tailwind·Supabase 확장 자동 설치
+  - 포트 3000 (Next), 54321~54324 (Supabase 로컬) 자동 포워드
+- **환경변수**:
+  - 로컬: `.env.local` (커밋 금지, `.gitignore` 에 등록됨)
+  - Codespaces: GitHub Settings → Codespaces secrets 에 등록 (값은 컨테이너 시작 시 자동 주입)
+- **주요 명령어**:
+  - `npm run dev` — 개발 서버 (Turbopack)
+  - `npm run build` / `npm start` — 프로덕션 빌드/실행
+  - `npm run lint` — ESLint
+  - `npm run type-check` — `tsc --noEmit`
+  - `npm run supabase:start|stop|reset` — Supabase 로컬
+  - `npm run supabase:types` — DB 스키마 → `src/types/database.ts` 자동 생성
